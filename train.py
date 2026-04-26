@@ -19,6 +19,7 @@ MODEL_PATH = "model_pipeline.pkl"
 
 def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+    df["explicit"]       = df["explicit"].astype(int)   # bool → int (compatibilidad sklearn)
     df["n_artists"]      = df["artists"].fillna("").str.count(";") + 1
     df["track_name_len"] = df["track_name"].fillna("").str.len()
     df["album_name_len"] = df["album_name"].fillna("").str.len()
@@ -39,15 +40,16 @@ def train():
     X = train_proc.drop(columns=["popularity"])
     y = train_proc["popularity"]
 
-    num_cols = X.select_dtypes(include=["int64", "float64"]).columns.tolist()
-    cat_cols = X.select_dtypes(include=["object", "bool"]).columns.tolist()
+    # explicit ya es int → solo track_genre queda como categórica (string)
+    num_cols = X.select_dtypes(include=["int64", "int32", "float64"]).columns.tolist()
+    cat_cols = ["track_genre"]
 
     preprocessor = ColumnTransformer([
         ("num", Pipeline([
             ("imputer", SimpleImputer(strategy="median"))
         ]), num_cols),
         ("cat", Pipeline([
-            ("imputer", SimpleImputer(strategy="most_frequent")),
+            ("imputer", SimpleImputer(strategy="constant", fill_value="unknown")),
             ("onehot",  OneHotEncoder(handle_unknown="ignore"))
         ]), cat_cols)
     ])

@@ -102,6 +102,7 @@ class SongFeatures(BaseModel):
 # ---------------------------------------------------------------------------
 def apply_feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+    df["explicit"]       = df["explicit"].astype(int)   # bool → int (compatibilidad sklearn)
     df["n_artists"]      = df["artists"].fillna("").str.count(";") + 1
     df["track_name_len"] = df["track_name"].fillna("").str.len()
     df["album_name_len"] = df["album_name"].fillna("").str.len()
