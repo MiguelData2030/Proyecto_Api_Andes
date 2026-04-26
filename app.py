@@ -5,9 +5,9 @@ Métricas en validación: RMSE 8.73 | MAE 6.05 | R² 0.845
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Annotated, Optional, List
 import joblib
 import pandas as pd
 import numpy as np
@@ -157,8 +157,52 @@ def predict(song: SongFeatures):
         raise HTTPException(status_code=500, detail=f"Error en predicción: {exc}")
 
 
+EJEMPLO_BATCH = [
+    {
+        "artists": "Hillsong Worship",
+        "album_name": "No Other Name",
+        "track_name": "No Other Name",
+        "duration_ms": 440247,
+        "explicit": False,
+        "danceability": 0.369,
+        "energy": 0.598,
+        "key": 7,
+        "loudness": -6.984,
+        "mode": 1,
+        "speechiness": 0.0304,
+        "acousticness": 0.00511,
+        "instrumentalness": 0.0,
+        "liveness": 0.176,
+        "valence": 0.0466,
+        "tempo": 148.014,
+        "time_signature": 4,
+        "track_genre": "world-music",
+    },
+    {
+        "artists": "Bryan Adams",
+        "album_name": "All I Want For Christmas Is You",
+        "track_name": "Merry Christmas",
+        "duration_ms": 151387,
+        "explicit": False,
+        "danceability": 0.683,
+        "energy": 0.511,
+        "key": 6,
+        "loudness": -5.598,
+        "mode": 1,
+        "speechiness": 0.0279,
+        "acousticness": 0.406,
+        "instrumentalness": 0.000197,
+        "liveness": 0.111,
+        "valence": 0.598,
+        "tempo": 109.991,
+        "time_signature": 3,
+        "track_genre": "rock",
+    },
+]
+
+
 @app.post("/predict_batch", tags=["Predicción"])
-def predict_batch(songs: List[SongFeatures]):
+def predict_batch(songs: Annotated[List[SongFeatures], Body(example=EJEMPLO_BATCH)]):
     """
     Recibe una lista de canciones y devuelve la popularidad predicha para cada una.
     Modelo: CatBoost + Optuna | RMSE: 8.73 | R²: 0.845
