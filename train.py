@@ -1,82 +1,78 @@
 """
-Script de entrenamiento que se ejecuta durante el build en Render.
-Descarga los datos, entrena el pipeline LightGBM y guarda model_pipeline.pkl.
+Script de entrenamiento ejecutado durante el build en Render.
+Modelo: CatBoost calibrado con Optuna — mejor modelo del proyecto
+Métricas en validación: RMSE 8.73 | MAE 6.05 | R² 0.845
 """
 
 import pandas as pd
 import numpy as np
 import joblib
 import os
-
-from lightgbm import LGBMRegressor
-from sklearn.pipeline import Pipeline
-from sklearn.compose import ColumnTransformer
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
+from catboost import CatBoostRegressor
 
 TRAIN_URL = "https://raw.githubusercontent.com/davidzarruk/MIAD_ML_NLP_2026/main/datasets/dataTrain_Spotify.csv"
 MODEL_PATH = "model_pipeline.pkl"
 
-def feature_engineering(df: pd.DataFrame) -> pd.DataFrame:
+# Variables exactas del notebook (Proyecto1_Popularidad_Canciones.ipynb)
+NUMERICAS = [
+    'duration_ms', 'danceability', 'energy', 'loudness',
+    'speechiness', 'acousticness', 'instrumentalness',
+    'liveness', 'valence', 'tempo'
+]
+CATEGORICAS = ['explicit', 'key', 'mode', 'time_signature', 'track_genre']
+TEXTO       = ['artists', 'album_name', 'track_name']
+PREDICTORES = NUMERICAS + CATEGORICAS + TEXTO
+
+# Columnas que CatBoost manejará como categóricas (strings)
+# key, mode, time_signature son int -> CatBoost los trata como numéricos
+CAT_FEATURES = ['explicit', 'track_genre', 'artists', 'album_name', 'track_name']
+
+# Mejores hiperparámetros encontrados con Optuna (Trial 12)
+BEST_PARAMS = {
+    "iterations":          3072,
+    "depth":               9,
+    "learning_rate":       0.049006456784407286,
+    "l2_leaf_reg":         1.3950429102859259,
+    "bagging_temperature": 1.1238363877194946,
+    "random_strength":     0.7180695088113583,
+    "loss_function":       "RMSE",
+    "eval_metric":         "RMSE",
+    "random_seed":         42,
+    "verbose":             200,
+}
+
+
+def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
-    df["explicit"]       = df["explicit"].astype(int)   # bool → int (compatibilidad sklearn)
-    df["n_artists"]      = df["artists"].fillna("").str.count(";") + 1
-    df["track_name_len"] = df["track_name"].fillna("").str.len()
-    df["album_name_len"] = df["album_name"].fillna("").str.len()
-    df["energy_dance"]   = df["energy"] * df["danceability"]
-    df["loud_energy"]    = df["loudness"] * df["energy"]
-    drop_cols = ["track_id", "artists", "album_name", "track_name"]
-    return df.drop(columns=drop_cols, errors="ignore")
+    for col in CAT_FEATURES:
+        df[col] = df[col].fillna("missing").astype(str)
+    return df[PREDICTORES]
 
 
 def train():
+    print("=" * 60)
     print("Descargando datos de entrenamiento...")
-    train_df = pd.read_csv(TRAIN_URL)
-    train_df = train_df.drop(columns=["Unnamed: 0"], errors="ignore")
+    data = pd.read_csv(TRAIN_URL, index_col=0)
+    print(f"  Registros: {len(data):,} | Variables: {len(PREDICTORES)}")
 
-    print("Aplicando feature engineering...")
-    train_proc = feature_engineering(train_df)
+    X = preprocess(data)
+    y = data["popularity"]
 
-    X = train_proc.drop(columns=["popularity"])
-    y = train_proc["popularity"]
+    print("\nEntrenando CatBoost con hiperparámetros óptimos (Optuna)...")
+    print(f"  iterations={BEST_PARAMS['iterations']} | depth={BEST_PARAMS['depth']} | lr={BEST_PARAMS['learning_rate']:.4f}")
 
-    # explicit ya es int → solo track_genre queda como categórica (string)
-    num_cols = X.select_dtypes(include=["int64", "int32", "float64"]).columns.tolist()
-    cat_cols = ["track_genre"]
+    model = CatBoostRegressor(**BEST_PARAMS)
+    model.fit(X, y, cat_features=CAT_FEATURES)
 
-    preprocessor = ColumnTransformer([
-        ("num", Pipeline([
-            ("imputer", SimpleImputer(strategy="median"))
-        ]), num_cols),
-        ("cat", Pipeline([
-            ("imputer", SimpleImputer(strategy="constant", fill_value="unknown")),
-            ("onehot",  OneHotEncoder(handle_unknown="ignore"))
-        ]), cat_cols)
-    ])
-
-    model = LGBMRegressor(
-        n_estimators     = 500,
-        learning_rate    = 0.05,
-        max_depth        = 6,
-        num_leaves       = 50,
-        subsample        = 0.8,
-        colsample_bytree = 0.8,
-        min_child_samples= 20,
-        reg_alpha        = 0.1,
-        reg_lambda       = 1.0,
-        random_state     = 42,
-        n_jobs           = -1,
-        verbose          = -1,
-    )
-
-    pipeline = Pipeline([("prep", preprocessor), ("model", model)])
-
-    print("Entrenando modelo...")
-    pipeline.fit(X, y)
-
-    joblib.dump(pipeline, MODEL_PATH)
+    artifact = {
+        "model":       model,
+        "predictores": PREDICTORES,
+        "cat_features": CAT_FEATURES,
+    }
+    joblib.dump(artifact, MODEL_PATH)
     size_mb = os.path.getsize(MODEL_PATH) / 1024 / 1024
-    print(f"Modelo guardado en '{MODEL_PATH}' ({size_mb:.2f} MB)")
+    print(f"\nModelo guardado: '{MODEL_PATH}' ({size_mb:.2f} MB)")
+    print("=" * 60)
 
 
 if __name__ == "__main__":
