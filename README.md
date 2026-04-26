@@ -4,6 +4,139 @@ API REST desarrollada con **FastAPI** para predecir la popularidad (0–100) de 
 
 ---
 
+## API en Producción
+
+| Recurso | URL |
+|---------|-----|
+| **API base** | https://proyecto-api-andes.onrender.com |
+| **Documentación interactiva (Swagger)** | https://proyecto-api-andes.onrender.com/docs |
+| **Estado del servicio** | https://proyecto-api-andes.onrender.com/health |
+| **Predicción individual** | https://proyecto-api-andes.onrender.com/docs#/Predicción/predict_predict_post |
+| **Predicción por lotes** | https://proyecto-api-andes.onrender.com/docs#/Predicci%C3%B3n/predict_batch_predict_batch_post |
+
+> **Nota:** El plan gratuito de Render entra en reposo tras 15 minutos sin actividad. La primera petición puede tardar ~30 segundos. Simplemente espera y vuelve a intentar.
+
+---
+
+## Cómo hacer predicciones desde el navegador
+
+### Paso 1 — Abrir la documentación interactiva
+
+Ingresa a: **https://proyecto-api-andes.onrender.com/docs**
+
+Verás la interfaz Swagger con todos los endpoints disponibles.
+
+---
+
+### Paso 2 — Verificar que el modelo está cargado (`GET /health`)
+
+1. Clic en **`GET /health`**
+2. Clic en **"Try it out"**
+3. Clic en **"Execute"**
+4. Debes ver en la respuesta:
+```json
+{
+  "status": "ok",
+  "modelo_cargado": true
+}
+```
+
+---
+
+### Paso 3 — Predicción de una canción (`POST /predict`)
+
+1. Clic en **`POST /predict`**
+2. Clic en **"Try it out"**
+3. El cuerpo viene pre-llenado con un ejemplo. Puedes usarlo tal cual o modificarlo
+4. Clic en **"Execute"**
+5. La respuesta tendrá la forma:
+```json
+{
+  "track_name": "No Other Name",
+  "artists": "Hillsong Worship",
+  "track_genre": "world-music",
+  "popularity_prediction": 42.18,
+  "escala": "0 (menos popular) – 100 (más popular)"
+}
+```
+
+---
+
+### Paso 4 — Predicción de dos canciones (`POST /predict_batch`)
+
+1. Clic en **`POST /predict_batch`**
+2. Clic en **"Try it out"**
+3. Reemplaza el contenido del body con el siguiente JSON (observaciones reales del set de test):
+
+```json
+[
+  {
+    "artists": "Hillsong Worship",
+    "album_name": "No Other Name",
+    "track_name": "No Other Name",
+    "duration_ms": 440247,
+    "explicit": false,
+    "danceability": 0.369,
+    "energy": 0.598,
+    "key": 7,
+    "loudness": -6.984,
+    "mode": 1,
+    "speechiness": 0.0304,
+    "acousticness": 0.00511,
+    "instrumentalness": 0.0,
+    "liveness": 0.176,
+    "valence": 0.0466,
+    "tempo": 148.014,
+    "time_signature": 4,
+    "track_genre": "world-music"
+  },
+  {
+    "artists": "Bryan Adams",
+    "album_name": "All I Want For Christmas Is You",
+    "track_name": "Merry Christmas",
+    "duration_ms": 151387,
+    "explicit": false,
+    "danceability": 0.683,
+    "energy": 0.511,
+    "key": 6,
+    "loudness": -5.598,
+    "mode": 1,
+    "speechiness": 0.0279,
+    "acousticness": 0.406,
+    "instrumentalness": 0.000197,
+    "liveness": 0.111,
+    "valence": 0.598,
+    "tempo": 109.991,
+    "time_signature": 3,
+    "track_genre": "rock"
+  }
+]
+```
+
+4. Clic en **"Execute"**
+5. La respuesta tendrá la forma:
+```json
+{
+  "predicciones": [
+    {
+      "track_name": "No Other Name",
+      "artists": "Hillsong Worship",
+      "track_genre": "world-music",
+      "popularity_prediction": 42.18
+    },
+    {
+      "track_name": "Merry Christmas",
+      "artists": "Bryan Adams",
+      "track_genre": "rock",
+      "popularity_prediction": 55.73
+    }
+  ],
+  "total": 2
+}
+```
+
+---
+
 ## Descripción
 
 El servicio expone un modelo de Machine Learning entrenado sobre el [dataset de Spotify Tracks](https://huggingface.co/datasets/maharshipandya/spotify-tracks-dataset) que abarca **125 géneros musicales** y más de **79 000 canciones**. A partir de características de audio (energía, bailabilidad, tempo, etc.) el modelo predice qué tan popular es una canción en una escala de 0 a 100.
@@ -84,111 +217,6 @@ Cliente (curl / Postman / Python)
 | `POST` | `/predict_batch` | Predicción para **varias** canciones |
 | `GET` | `/docs` | Documentación interactiva (Swagger UI) |
 
-### Ejemplo — `POST /predict`
-
-**Request:**
-```json
-{
-  "track_id": "6KwkVtXm8OUp2XffN5k7lY",
-  "artists": "Hillsong Worship",
-  "album_name": "No Other Name",
-  "track_name": "No Other Name",
-  "duration_ms": 440247,
-  "explicit": false,
-  "danceability": 0.369,
-  "energy": 0.598,
-  "key": 7,
-  "loudness": -6.984,
-  "mode": 1,
-  "speechiness": 0.0304,
-  "acousticness": 0.00511,
-  "instrumentalness": 0.0,
-  "liveness": 0.176,
-  "valence": 0.0466,
-  "tempo": 148.014,
-  "time_signature": 4,
-  "track_genre": "world-music"
-}
-```
-
-**Response:**
-```json
-{
-  "track_name": "No Other Name",
-  "artists": "Hillsong Worship",
-  "track_genre": "world-music",
-  "popularity_prediction": 42.18,
-  "escala": "0 (menos popular) – 100 (más popular)"
-}
-```
-
-### Ejemplo — `POST /predict_batch`
-
-**Request:**
-```json
-[
-  {
-    "track_name": "No Other Name",
-    "artists": "Hillsong Worship",
-    "track_genre": "world-music",
-    "duration_ms": 440247,
-    "explicit": false,
-    "danceability": 0.369,
-    "energy": 0.598,
-    "key": 7,
-    "loudness": -6.984,
-    "mode": 1,
-    "speechiness": 0.0304,
-    "acousticness": 0.00511,
-    "instrumentalness": 0.0,
-    "liveness": 0.176,
-    "valence": 0.0466,
-    "tempo": 148.014,
-    "time_signature": 4
-  },
-  {
-    "track_name": "Merry Christmas",
-    "artists": "Bryan Adams",
-    "track_genre": "rock",
-    "duration_ms": 151387,
-    "explicit": false,
-    "danceability": 0.683,
-    "energy": 0.511,
-    "key": 6,
-    "loudness": -5.598,
-    "mode": 1,
-    "speechiness": 0.0279,
-    "acousticness": 0.406,
-    "instrumentalness": 0.000197,
-    "liveness": 0.111,
-    "valence": 0.598,
-    "tempo": 109.991,
-    "time_signature": 3
-  }
-]
-```
-
-**Response:**
-```json
-{
-  "predicciones": [
-    {
-      "track_name": "No Other Name",
-      "artists": "Hillsong Worship",
-      "track_genre": "world-music",
-      "popularity_prediction": 42.18
-    },
-    {
-      "track_name": "Merry Christmas",
-      "artists": "Bryan Adams",
-      "track_genre": "rock",
-      "popularity_prediction": 55.73
-    }
-  ],
-  "total": 2
-}
-```
-
 ---
 
 ## Estructura del Repositorio
@@ -251,13 +279,6 @@ El archivo `render.yaml` automatiza el despliegue completo:
 2. **New → Web Service** → conectar este repositorio de GitHub
 3. Render detecta `render.yaml` automáticamente
 4. Hacer clic en **Deploy**
-
-La URL pública tendrá la forma:
-```
-https://spotify-popularity-api.onrender.com
-```
-
-> **Nota:** En el plan gratuito de Render, el servicio entra en reposo tras 15 minutos de inactividad. La primera petición después del reposo puede tardar ~30 segundos en responder.
 
 ---
 
